@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ENPASSANT – Chess game analysis</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    :root {
+      --bg: #101512;
+      --p: #18201b;
+      --p2: #202b25;
+      --ln: #2e3d34;
+      --em: #00A878;
+      --tx: #eef3ef;
+      --mu: #93a79b;
+      --bad: #ca3431
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--tx);
+      font: 400 16px/1.5 Inter, system-ui, sans-serif;
+      min-height: 100vh
+    }
+
+    h1,
+    h2,
+    h3,
+    .hd {
+      font-family: 'Space Grotesk', Inter, sans-serif;
+      font-weight: 700
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: 0;
+      color: inherit
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--em);
+      outline-offset: 2px
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 0
+    }
+
+    .top .hd {
+      font-size: 22px;
+      letter-spacing: .06em;
+      cursor: pointer
+    }
+
+    .btn {
+      background: var(--em);
+      color: #04130d;
+      font-weight: 600;
+      padding: 12px 22px;
+      border-radius: 10px
+    }
+
+    .btn.s {
+      background: var(--p2);
+      color: var(--tx);
+      padding: 8px 14px;
+      border: 1px solid var(--ln)
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 48px;
+      align-items: center;
+      padding: 40px 0 56px
+    }
+
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 104px);
+      line-height: .92;
+      font-weight: 700;
+      letter-spacing: -.03em
+    }
+
+    .hero p {
+      color: var(--mu);
+      font-size: 18px;
+      max-width: 46ch;
+      margin: 22px 0 28px
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--p);
+      border: 2px solid var(--ln);
+      border-radius: 10px;
+      color: var(--tx);
+      padding: 12px 16px;
+      font: inherit;
+      font-size: 18px
+    }
+
+    input:focus {
+      border-color: var(--em);
+      outline: 0
+    }
+
+    .err {
+      color: #ff8a80;
+      margin-top: 12px;
+      min-height: 24px
+    }
+
+    .feat {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px
+    }
+
+    .feat div {
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 14px;
+      padding: 22px
+    }
+
+    .feat h3 {
+      font-size: 20px;
+      margin-bottom: 6px
+    }
+
+    .feat p {
+      color: var(--mu);
+      font-size: 15px
+    }
+
+    .foot {
+      color: var(--mu);
+      font-size: 13px;
+      padding: 36px 0
+    }
+
+    /* board */
+    .bd {
+      container-type: inline-size;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      aspect-ratio: 1;
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px #0008
+    }
+
+    .sq {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 1
+    }
+
+    .sq.l {
+      background: #e3e8d6
+    }
+
+    .sq.d {
+      background: #4f8a6b
+    }
+
+    .sq.h::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: #f5d84a;
+      opacity: .5
+    }
+
+    .sq i {
+      position: relative;
+      font-style: normal;
+      line-height: 1;
+      font-size: 10.8cqw;
+      filter: drop-shadow(0 .05em .03em #0006)
+    }
+
+    .sq i.w {
+      color: #fffdf4;
+      -webkit-text-stroke: .035em #1b2420
+    }
+
+    .sq i.k {
+      color: #242c28;
+      -webkit-text-stroke: .03em #000
+    }
+
+    .sq small {
+      position: absolute;
+      font: 600 1.9cqw Inter;
+      opacity: .65
+    }
+
+    .sq.l small {
+      color: #4f8a6b
+    }
+
+    .sq.d small {
+      color: #e3e8d6
+    }
+
+    .sq .f {
+      right: 3%;
+      bottom: 2%
+    }
+
+    .sq .r {
+      left: 4%;
+      top: 2%
+    }
+
+    .bg {
+      position: absolute;
+      z-index: 3;
+      right: -1%;
+      top: -1%;
+      min-width: 3.8cqw;
+      height: 3.8cqw;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font: 700 2.2cqw Inter;
+      color: #fff;
+      box-shadow: 0 1px 4px #0008;
+      padding: 0 .6cqw
+    }
+
+    /* games */
+    .gl {
+      display: grid;
+      gap: 10px;
+      margin: 20px 0
+    }
+
+    .g {
+      display: grid;
+      grid-template-columns: 70px 1fr auto;
+      gap: 16px;
+      align-items: center;
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 12px;
+      padding: 12px 16px
+    }
+
+    .g .res {
+      font-weight: 700;
+      text-align: center;
+      border-radius: 8px;
+      padding: 6px;
+      font-size: 14px
+    }
+
+    .res.win {
+      background: #12402f;
+      color: #5eeaa8
+    }
+
+    .res.loss {
+      background: #4a1b1b;
+      color: #ff9a95
+    }
+
+    .res.draw {
+      background: #333b36;
+      color: #cfd8d2
+    }
+
+    .g small {
+      color: var(--mu);
+      display: block
+    }
+
+    /* modal */
+    .ov {
+      position: fixed;
+      inset: 0;
+      background: #000b;
+      display: grid;
+      place-items: center;
+      z-index: 9;
+      padding: 16px
+    }
+
+    .md {
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 18px;
+      padding: 28px;
+      max-width: 860px;
+      width: 100%
+    }
+
+    .cg {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 18px
+    }
+
+    .cc {
+      background: var(--p2);
+      border: 2px solid var(--ln);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center
+    }
+
+    .cc:hover {
+      border-color: var(--em)
+    }
+
+    .cc svg {
+      width: 88px;
+      height: 88px
+    }
+
+    .cc b {
+      display: block;
+      font-size: 18px
+    }
+
+    .cc small {
+      color: var(--mu)
+    }
+
+    /* review */
+    .rv {
+      display: grid;
+      grid-template-columns: minmax(0, 640px) 1fr;
+      gap: 24px;
+      align-items: start
+    }
+
+    .bw {
+      display: flex;
+      gap: 10px
+    }
+
+    .bw>div:last-child {
+      flex: 1;
+      min-width: 0
+    }
+
+    .eb {
+      width: 26px;
+      border-radius: 6px;
+      background: #242c28;
+      position: relative;
+      overflow: hidden;
+      flex: none;
+      align-self: stretch
+    }
+
+    .eb div {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #f1f4ef;
+      transition: height .3s
+    }
+
+    .eb span {
+      position: absolute;
+      left: 0;
+      right: 0;
+      font: 700 10px Inter;
+      text-align: center;
+      mix-blend-mode: difference;
+      color: #fff
+    }
+
+    .pl {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      padding: 6px 2px
+    }
+
+    .pl small {
+      color: var(--mu)
+    }
+
+    .coach {
+      display: flex;
+      gap: 14px;
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 16px;
+      padding: 16px
+    }
+
+    .coach svg {
+      width: 76px;
+      height: 76px;
+      flex: none
+    }
+
+    .coach p {
+      background: var(--p2);
+      border-radius: 4px 14px 14px 14px;
+      padding: 12px 14px;
+      flex: 1
+    }
+
+    .coach strong {
+      display: block;
+      font-size: 13px;
+      color: var(--mu);
+      margin-bottom: 2px
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      margin: 12px 0
+    }
+
+    .nav button {
+      flex: 1;
+      background: var(--p2);
+      border: 1px solid var(--ln);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 18px
+    }
+
+    .ml {
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 14px;
+      padding: 10px;
+      max-height: 300px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: 34px 1fr 1fr;
+      gap: 2px
+    }
+
+    .ml u {
+      text-decoration: none;
+      color: var(--mu);
+      font-size: 13px;
+      padding: 6px 0
+    }
+
+    .ml button {
+      background: 0;
+      text-align: left;
+      padding: 6px 8px;
+      border-radius: 6px;
+      display: flex;
+      gap: 6px;
+      align-items: center
+    }
+
+    .ml button.on {
+      background: var(--em);
+      color: #04130d
+    }
+
+    .ml em {
+      font: 700 11px Inter;
+      font-style: normal
+    }
+
+    .an {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 24px
+    }
+
+    .card {
+      background: var(--p);
+      border: 1px solid var(--ln);
+      border-radius: 16px;
+      padding: 20px
+    }
+
+    .card.w2 {
+      grid-column: span 2
+    }
+
+    .card h3 {
+      margin-bottom: 12px;
+      font-size: 18px
+    }
+
+    .acc {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .acc div {
+      background: var(--p2);
+      border-radius: 12px;
+      padding: 14px
+    }
+
+    .acc b {
+      font: 700 40px 'Space Grotesk'
+    }
+
+    .acc small {
+      display: block;
+      color: var(--mu)
+    }
+
+    .ch {
+      width: 100%;
+      display: block;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    .q {
+      display: grid;
+      grid-template-columns: 100px 1fr 1fr;
+      gap: 6px 10px;
+      align-items: center;
+      font-size: 14px
+    }
+
+    .q i {
+      display: block;
+      height: 10px;
+      border-radius: 5px;
+      min-width: 3px
+    }
+
+    .q span {
+      display: flex;
+      gap: 6px;
+      align-items: center
+    }
+
+    .prog {
+      height: 8px;
+      background: var(--p2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 14px
+    }
+
+    .prog div {
+      height: 100%;
+      background: var(--em);
+      width: 0;
+      transition: width .2s
+    }
+
+    @media(max-width:860px) {
+
+      .hero,
+      .rv {
+        grid-template-columns: 1fr
+      }
+
+      .feat,
+      .an {
+        grid-template-columns: 1fr
+      }
+
+      .card.w2 {
+        grid-column: auto
+      }
+
+      .cg {
+        grid-template-columns: 1fr 1fr
+      }
+
+      .g {
+        grid-template-columns: 56px 1fr
+      }
+
+      .g button {
+        grid-column: 1/-1
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top" id="logo"></div>
+    <main id="app"></main>
+    <p class="foot">ENPASSANT is an independent project and is not affiliated with Chess.com. Games come from the public
+      Chess.com API; analysis runs in your browser with Stockfish.</p>
+  </div>
+  <script>
+    const SF = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js', DEPTH = 12;
+    const $ = s => document.querySelector(s), GL = {k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟︎'};
+    const LOGO = z => `<svg width=${z} height=${z} viewBox="0 0 48 48" aria-hidden="true"><rect width=48 height=48 rx=12 fill=#00A878 /><path d="M5 31Q8 15 22 15" stroke=#101512 stroke-width=2.6 fill=none stroke-linecap=round stroke-dasharray="0.5 5" /><circle cx=28 cy=14 r=6 fill=#101512 /><path d="M22 37c0-8 4-10 5-14h2c1 4 5 6 5 14z" fill=#101512 /><rect x=18 y=37 width=22 height=4 rx=2 fill=#101512 /></svg>`;
+    $('#logo').innerHTML = LOGO(40) + '<span class="hd">ENPASSANT</span>'; $('#logo').onclick = () => home();
+    const CL = {brilliant: ['!!', '#1bb3a0', 'Brilliant'], best: ['★', '#6fcf4a', 'Best'], excellent: ['✓', '#96bc4b', 'Excellent'], good: ['✓', '#9aa985', 'Good'], inaccuracy: ['?!', '#f7c631', 'Inaccuracy'], mistake: ['?', '#e58f2a', 'Mistake'], blunder: ['??', '#ca3431', 'Blunder']};
+    const FACE = [
+      `<svg viewBox="0 0 64 64"><circle cx=32 cy=35 r=22 fill=#f2c9a0 /><path d="M10 32Q12 8 32 8t22 24q-8-9-22-9t-22 9z" fill=#2b3f6b /><circle cx=23 cy=36 r=6.5 fill=none stroke=#222 stroke-width=2 /><circle cx=41 cy=36 r=6.5 fill=none stroke=#222 stroke-width=2 /><path d="M29.5 36h5" stroke=#222 stroke-width=2 /><circle cx=23 cy=36 r=2 /><circle cx=41 cy=36 r=2 /><path d="M25 48q7 5 14 0" stroke=#7a3b2e stroke-width=2.5 fill=none stroke-linecap=round /></svg>`,
+      `<svg viewBox="0 0 64 64"><circle cx=32 cy=9 r=7 fill=#7b4423 /><circle cx=32 cy=35 r=22 fill=#e8b48a /><path d="M10 34Q8 10 32 10t22 24q-5-14-22-14T10 34z" fill=#7b4423 /><circle cx=24 cy=36 r=3 /><circle cx=40 cy=36 r=3 /><circle cx=19 cy=44 r=4 fill=#f08a8a opacity=.5 /><circle cx=45 cy=44 r=4 fill=#f08a8a opacity=.5 /><path d="M23 46q9 10 18 0z" fill=#7a2e2e /></svg>`,
+      `<svg viewBox="0 0 64 64"><path d="M16 18l5-12 11 8 11-8 5 12z" fill=#e0b84a /><circle cx=32 cy=37 r=21 fill=#f0c9a4 /><path d="M18 34q4-8 10-6M46 34q-4-8-10-6" stroke=#ddd stroke-width=3.5 fill=none stroke-linecap=round /><circle cx=24 cy=37 r=2.6 /><circle cx=40 cy=37 r=2.6 /><path d="M18 47q7-6 14-2 7-4 14 2-4 5-14 1-10 4-14-1z" fill=#eee /></svg>`,
+      `<svg viewBox="0 0 64 64"><path d="M32 4v9" stroke=#9fb3c8 stroke-width=3 /><circle cx=32 cy=5 r=4 fill=#00A878 /><rect x=10 y=13 width=44 height=42 rx=12 fill=#9fb3c8 /><rect x=16 y=24 width=32 height=14 rx=7 fill=#101512 /><circle cx=25 cy=31 r=4 fill=#00e0a0 /><circle cx=39 cy=31 r=4 fill=#00e0a0 /><path d="M24 46h16M28 43v6M36 43v6" stroke=#4a5d70 stroke-width=2.5 /></svg>`];
+    const CO = [
+      {n: 'Strategist', d: 'Plans, structure, the long game', p: ['A clear idea.', 'Well judged.'], m: ['That loosens your position.', 'Watch the structure.']},
+      {n: 'Mentor', d: 'Warm, patient, encouraging', p: ['Nice one!', 'Great job!'], m: ['Don’t worry, it happens.', 'Let’s learn from this.']},
+      {n: 'Grandmaster', d: 'Direct and demanding', p: ['Correct.', 'As expected.'], m: ['Unacceptable at this level.', 'You must calculate more.']},
+      {n: 'Analyst', d: 'Numbers first, no emotion', p: ['Evaluation holds.', 'Optimal line.'], m: ['Evaluation drops.', 'Sub-optimal output.']}];
+    let U = '', GM = [], AR = [], AI = 0, S = {};
+    function board(fen, o = {}) {
+      const map = {}; fen.split(' ')[0].split('/').forEach((r, y) => {let x = 0; for (const c of r) {if (+c) x += +c; else map['abcdefgh'[x++] + (8 - y)] = c} });
+      const R = o.flip ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1], F = o.flip ? [...'hgfedcba'] : [...'abcdefgh']; let h = '';
+      for (const r of R) for (const f of F) {
+        const s = f + r, p = map[s], dk = ('abcdefgh'.indexOf(f) + r) % 2 === 1;
+        h += `<div class="sq ${dk ? 'd' : 'l'}${o.last && o.last.includes(s) ? ' h' : ''}">${f === F[0] ? `<small class=r>${r}</small>` : ''}${r === R[7] ? `<small class=f>${f}</small>` : ''}${p ? `<i class="${p < 'a' ? 'w' : 'k'}">${GL[p.toLowerCase()]}</i>` : ''}${o.badge && o.last && s === o.last[1] ? `<b class=bg style="background:${o.badge[1]}">${o.badge[0]}</b>` : ''}</div>`
+      }
+      return `<div class=bd>${h}</div>`
+    }
+    function home(msg = '') {
+      S = {}; $('#app').innerHTML = `<section class=hero><div><h1>Think beyond the board.</h1><p>Enter your Chess.com username. ENPASSANT loads your games and reviews every move with Stockfish, a cartoon coach and charts that show where the game turned. Free.</p>
+<form id=f><input id=u placeholder="Chess.com username" value="${U}" autocomplete=off aria-label="Chess.com username"><button class=btn>Find my games</button></form><div class=err id=er>${msg}</div></div>
+<div>${board('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1', {last: ['e5', 'd6']})}</div></section>
+<section class=feat><div><h3>Every move graded</h3><p>Brilliant, best, good, inaccuracy, mistake or blunder, calculated by Stockfish.</p></div><div><h3>Pick your coach</h3><p>Four cartoon coaches explain each move in their own voice.</p></div><div><h3>Charts that explain</h3><p>Evaluation graph, accuracy, move quality and the biggest swings of the game.</p></div></section>`;
+      $('#f').onsubmit = e => {e.preventDefault(); load($('#u').value)}
+    }
+    async function load(u) {
+      u = u.trim().toLowerCase(); if (!u) return; U = u; $('#er').textContent = 'Loading games…';
+      try {
+        const r = await fetch(`https://api.chess.com/pub/player/${u}/games/archives`); if (!r.ok) return home(r.status == 404 ? `No Chess.com player named “${u}”.` : 'Chess.com is not answering. Try again in a minute.');
+        AR = (await r.json()).archives.reverse(); AI = 0; GM = []; await more(); list()
+      } catch (e) {home('Could not reach Chess.com. Check your connection and open this file in a browser with internet access.')}
+    }
+    async function more() {for (let k = 0; k < 2 && AI < AR.length; k++) {const r = await fetch(AR[AI++]); if (r.ok) (await r.json()).games.reverse().forEach(g => {if (g.rules === 'chess' && g.pgn) GM.push(g)})} }
+    function list() {
+      $('#app').innerHTML = `<h2 style="font-size:34px">${U}’s games</h2><p style="color:var(--mu)">${GM.length} games loaded. Choose one to review.</p><div class=gl>${GM.map((g, i) => {
+        const w = g.white.username.toLowerCase() === U, me = w ? g.white : g.black, op = w ? g.black : g.white,
+        res = me.result === 'win' ? 'win' : ['checkmated', 'resigned', 'timeout', 'abandoned', 'lose'].includes(me.result) ? 'loss' : 'draw';
+        return `<div class=g><span class="res ${res}">${res}</span><div><b>vs ${op.username} (${op.rating})</b><small>${g.time_class}, ${new Date(g.end_time * 1e3).toLocaleDateString()}, you played ${w ? 'white' : 'black'}, ${me.rating} rating</small></div><button class=btn data-i=${i}>Review game</button></div>`
+      }).join('')}</div>${AI < AR.length ? '<button class="btn s" id=mo>Load older games</button>' : ''}`;
+      document.querySelectorAll('.g .btn').forEach(b => b.onclick = () => pick(+b.dataset.i)); const m = $('#mo'); if (m) m.onclick = async () => {m.textContent = 'Loading…'; await more(); list()}
+    }
+    function pick(i) {
+      const o = document.createElement('div'); o.className = 'ov'; o.innerHTML = `<div class=md><h2>Choose your coach</h2><p style="color:var(--mu)">Your coach comments on every move.</p><div class=cg>${CO.map((c, k) => `<button class=cc data-k=${k}>${FACE[k]}<b>${c.n}</b><small>${c.d}</small></button>`).join('')}</div></div>`;
+      o.onclick = e => {if (e.target === o) o.remove()}; document.body.append(o); o.querySelectorAll('.cc').forEach(b => b.onclick = () => {o.remove(); review(GM[i], +b.dataset.k)})
+    }
+    const wp = (c, white) => {const w = 50 + 50 * (2 / (1 + Math.exp(-.00368208 * c)) - 1); return white ? w : 100 - w}, V = {p: 1, n: 3, b: 3, r: 5, q: 9, k: 0};
+    function engine(fen, w, d = DEPTH) {
+      return new Promise((res, rej) => {
+        let cp = 0; w.onerror = () => rej(); w.onmessage = e => {
+          const s = e.data; if (typeof s !== 'string') return;
+          if (s.startsWith('info') && / score /.test(s)) {const m = s.match(/score (cp|mate) (-?\d+)/); if (m) cp = m[1] === 'cp' ? +m[2] : (+m[2] > 0 ? 1 : -1) * (10000 - Math.abs(+m[2]) * 10)}
+          else if (s.startsWith('bestmove')) res({cp: fen.split(' ')[1] === 'w' ? cp : -cp, best: s.split(' ')[1]})
+        }; w.postMessage('position fen ' + fen); w.postMessage('go depth ' + d)
+      })
+    }
+    async function review(g, k) {
+      const c = new Chess(); c.load_pgn(g.pgn); const mv = c.history({verbose: true}), t = new Chess(), fens = [t.fen()]; mv.forEach(m => {t.move({from: m.from, to: m.to, promotion: m.promotion}); fens.push(t.fen())});
+      const w = g.white.username.toLowerCase() === U; S = {g, k, mv, fens, flip: !w, n: mv.length, cur: 0, ev: [], best: [], cl: []};
+      $('#app').innerHTML = `<h2 style="font-size:30px">Analysing with Stockfish…</h2><p id=pt style="color:var(--mu)">Position 0 of ${fens.length}</p><div class=prog><div id=pb></div></div>`;
+      let wk; try {
+        wk = new Worker(URL.createObjectURL(new Blob([`importScripts('${SF}')`], {type: 'text/javascript'}))); wk.postMessage('uci');
+        for (let i = 0; i < fens.length; i++) {
+          const tt = new Chess(fens[i]); let r;
+          if (tt.in_checkmate()) r = {cp: tt.turn() === 'w' ? -10000 : 10000, best: ''}; else if (tt.game_over()) r = {cp: 0, best: ''}; else r = await engine(fens[i], wk);
+          S.ev.push(r.cp); S.best.push(r.best); $('#pt').textContent = `Position ${i + 1} of ${fens.length}`; $('#pb').style.width = (i + 1) / fens.length * 100 + '%'
+        }
+      }
+      catch (e) {return home('Stockfish could not load. Check the SF address at the top of the script and your connection.')}
+      wk.terminate(); classify(); view()
+    }
+    function classify() {
+      const s = S; s.loss = []; s.cpl = []; mv = s.mv; mv.forEach((m, i) => {
+        const white = i % 2 === 0, b = wp(s.ev[i], white), a = wp(s.ev[i + 1], white), l = Math.max(0, b - a); s.loss.push(l);
+        s.cpl.push(Math.max(0, (white ? 1 : -1) * (Math.max(-1e3, Math.min(1e3, s.ev[i])) - Math.max(-1e3, Math.min(1e3, s.ev[i + 1])))));
+        const uci = m.from + m.to + (m.promotion || ''); let k = uci === s.best[i] ? 'best' : l < 2 ? 'excellent' : l < 5 ? 'good' : l < 10 ? 'inaccuracy' : l < 20 ? 'mistake' : 'blunder';
+        const t = new Chess(s.fens[i + 1]), cap = m.captured ? V[m.captured] : 0;
+        if (l < 2 && a >= 50 && b < 85 && V[m.piece] >= 3 && V[m.piece] > cap + 1 && t.moves({verbose: true}).some(x => x.to === m.to)) k = 'brilliant'; s.cl.push(k)
+      });
+      s.acc = [0, 1].map(p => {const a = s.loss.filter((_, i) => i % 2 === p).map(l => Math.max(0, Math.min(100, 103.1668 * Math.exp(-.04354 * l) - 3.1669))); return a.reduce((x, y) => x + y, 0) / (a.length || 1)});
+      s.acpl = [0, 1].map(p => {const a = s.cpl.filter((_, i) => i % 2 === p); return a.reduce((x, y) => x + y, 0) / (a.length || 1)})
+    }
+    function view() {
+      const s = S, g = s.g, W = 720, H = 150, n = s.n || 1, X = i => i / n * W;
+      const ys = c => H / 2 - Math.max(-800, Math.min(800, c)) / 800 * (H / 2 - 6), pts = s.ev.map((c, i) => X(i).toFixed(1) + ',' + ys(c).toFixed(1)).join(' ');
+      const order = Object.keys(CL), cnt = p => k => s.cl.filter((c, i) => i % 2 === p && c === k).length, mx = Math.max(1, ...order.flatMap(k => [cnt(0)(k), cnt(1)(k)]));
+      const side = p => `<small>${p ? g.black.username : g.white.username}</small>`, bar = (v, k) => `<span><i style="width:${v / mx * 100}%;background:${CL[k][1]}"></i>${v}</span>`;
+      let ml = ''; s.mv.forEach((m, i) => {if (i % 2 === 0) ml += `<u>${i / 2 + 1}.</u>`; const c = CL[s.cl[i]]; ml += `<button data-i=${i + 1}>${m.san}<em style="color:${c[1]}">${c[0]}</em></button>`});
+      $('#app').innerHTML = `<div class=rv><div><div class=pl><span>${s.flip ? g.white.username : g.black.username} <small>${s.flip ? g.white.rating : g.black.rating}</small></span></div><div class=bw><div class=eb><div id=ew></div><span id=et></span></div><div id=bd></div></div><div class=pl><span>${s.flip ? g.black.username : g.white.username} <small>${s.flip ? g.black.rating : g.white.rating}</small></span></div></div>
+ <aside><div class=coach id=cp></div><div class=nav><button data-n=0 aria-label=Start>⏮</button><button data-n=-1 aria-label=Back>◀</button><button data-n=1 aria-label=Next>▶</button><button data-n=99 aria-label=End>⏭</button></div><div class=ml id=ml>${ml}</div></aside></div>
+ <section class=an><div class=card><h3>Accuracy</h3><div class=acc>${[0, 1].map(p => `<div><b>${s.acc[p].toFixed(1)}</b>${side(p)}<small>avg. loss ${s.acpl[p].toFixed(0)} cp</small></div>`).join('')}</div></div>
+ <div class=card><h3>Move quality</h3><div class=q><span></span>${side(0)}${side(1)}${order.map(k => `<span style="color:${CL[k][1]}">${CL[k][2]}</span>${bar(cnt(0)(k), k)}${bar(cnt(1)(k), k)}`).join('')}</div></div>
+ <div class="card w2"><h3>Evaluation (white advantage is the light area)</h3><svg class=ch id=ec viewBox="0 0 ${W} ${H}"><rect width=${W} height=${H} fill=#26302a /><polygon points="0,${H} ${pts} ${W},${H}" fill=#eef1ec /><line x1=0 x2=${W} y1=${H / 2} y2=${H / 2} stroke=#00A878 stroke-dasharray="4 4" /><line id=mk y1=0 y2=${H} stroke=#00A878 stroke-width=3 /></svg></div>
+ <div class="card w2"><h3>Win chance lost on each move</h3><svg class=ch id=lc viewBox="0 0 ${W} 110"><rect width=${W} height=110 fill=#26302a />${s.loss.map((l, i) => {const h = Math.min(100, l * 2.6); return `<rect x=${i * W / n + 1} y=${108 - h} width=${Math.max(1, W / n - 2)} height=${h} fill="${CL[s.cl[i]][1]}" />`}).join('')}</svg></div></section>`;
+      const go = i => show(i); document.querySelectorAll('.ml button').forEach(b => b.onclick = () => go(+b.dataset.i));
+      document.querySelectorAll('.nav button').forEach(b => b.onclick = () => {const d = +b.dataset.n; go(d === 0 ? 0 : d === 99 ? s.n : s.cur + d)});
+      [$('#ec'), $('#lc')].forEach(e => e.onclick = ev => {const r = e.getBoundingClientRect(); go(Math.round((ev.clientX - r.left) / r.width * s.n) + (e.id === 'lc' ? 0 : 0))});
+      onkeydown = e => {if (!S.mv) return; if (e.key === 'ArrowRight') go(S.cur + 1); if (e.key === 'ArrowLeft') go(S.cur - 1)}; show(0)
+    }
+    function show(i) {
+      const s = S; s.cur = Math.max(0, Math.min(s.n, i)); const c = s.cur, m = c ? s.mv[c - 1] : null, k = c ? s.cl[c - 1] : null, co = CO[s.k];
+      $('#bd').innerHTML = board(s.fens[c], {flip: s.flip, last: m && [m.from, m.to], badge: k && CL[k]});
+      const e = s.ev[c], pc = wp(e, true); $('#ew').style.height = pc + '%'; $('#et').textContent = Math.abs(e) >= 9000 ? 'M' : (e / 100).toFixed(1); $('#et').style.cssText = `top:${pc > 50 ? 'auto' : '4px'};bottom:${pc > 50 ? '4px' : 'auto'}`;
+      let txt = 'Let’s go through this game together. Use the arrows or your keyboard.';
+      if (m) {
+        const bad = ['inaccuracy', 'mistake', 'blunder'].includes(k), ok = ['brilliant', 'best', 'excellent'].includes(k); let b = '';
+        if (s.best[c - 1] && s.best[c - 1] !== m.from + m.to + (m.promotion || '')) {const q = new Chess(s.fens[c - 1]).move({from: s.best[c - 1].slice(0, 2), to: s.best[c - 1].slice(2, 4), promotion: s.best[c - 1][4]}); b = q ? q.san : ''}
+        const base = {brilliant: `${m.san} is a brilliant sacrifice, and the engine confirms it works.`, best: `${m.san} is the engine’s top choice.`, excellent: `${m.san} is almost as strong as the best move${b ? ' (' + b + ')' : ''}.`, good: `${m.san} is solid${b ? ', though ' + b + ' was a bit stronger' : ''}.`, inaccuracy: `${m.san} is slightly inaccurate. ${b} was better.`, mistake: `${m.san} is a mistake. Look at ${b}.`, blunder: `${m.san} is a blunder. ${b} was needed.`}[k];
+        txt = (ok ? co.p : bad ? co.m : [''])[c % 2] + ' ' + base
+      }
+      $('#cp').innerHTML = `${FACE[s.k]}<p><strong>${co.n}${k ? ', ' + CL[k][2] : ''}</strong>${txt}</p>`;
+      const x = c / (s.n || 1) * 720; $('#mk').setAttribute('x1', x); $('#mk').setAttribute('x2', x);
+      document.querySelectorAll('.ml button').forEach(b => {const on = +b.dataset.i === c; b.classList.toggle('on', on); if (on) b.scrollIntoView({block: 'nearest'})})
+    }
+    home();
+  </script>
+</body>
+
+</html>
